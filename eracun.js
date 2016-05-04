@@ -30,7 +30,7 @@ var razmerje_usd_eur = 0.877039116;
 
 function davcnaStopnja(izvajalec, zanr) {
   switch (izvajalec) {
-    case "Queen": case "Led Zepplin": case "Kiss":
+    case "Queen": case "Led Zeppelin": case "Kiss":
       return 0;
     case "Justin Bieber":
       return 22;
@@ -201,21 +201,41 @@ streznik.post('/prijava', function(zahteva, odgovor) {
   
   form.parse(zahteva, function (napaka1, polja, datoteke) {
     var napaka2 = false;
+    var vrednosti = "('" +  + "','" +
+                    + "','" +
+                  + "','" +
+                   + "','" +
+                 
+    console.log(vrednosti);
+    
     try {
+      var sporocilo;
       var stmt = pb.prepare("\
         INSERT INTO Customer \
     	  (FirstName, LastName, Company, \
     	  Address, City, State, Country, PostalCode, \
     	  Phone, Fax, Email, SupportRepId) \
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+      
+      
       //TODO: add fields and finalize
-      //stmt.run("", "", "", "", "", "", "", "", "", "", "", 3); 
-      //stmt.finalize();
+      stmt.run(polja["FirstName"], polja["LastName"],  polja["Company"],  
+          polja["Address"], polja["City"], polja["State"], polja["Country"],
+          polja["PostalCode"], polja["Phone"], polja["Fax"], polja["Email"], 3);
+      stmt.finalize();
+      sporocilo = "Stranka je bila uspešno registrirana.";
+      
+      
     } catch (err) {
       napaka2 = true;
+      sporocilo = "Prišlo je do napake pri registraciji nove stranke. Prosim preverite vnešene podatke in poskusite znova.";
     }
-  
-    odgovor.end();
+    
+    vrniStranke(function(napakaA, stranke) {
+      vrniRacune(function (napakaB, racuni) {
+        odgovor.render('prijava', {sporocilo: sporocilo, seznamStrank: stranke, seznamRacunov: racuni});
+      })
+    })
   });
 })
 
