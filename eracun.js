@@ -138,7 +138,7 @@ var pesmiIzRacuna = function(racunId, callback) {
     Track.TrackId IN (SELECT InvoiceLine.TrackId FROM InvoiceLine, Invoice \
     WHERE InvoiceLine.InvoiceId = Invoice.InvoiceId AND Invoice.InvoiceId = " + racunId + ")",
     function(napaka, vrstice) {
-      console.log(vrstice);
+      callback(napaka, vrstice);
     })
 }
 
@@ -147,13 +147,44 @@ var strankaIzRacuna = function(racunId, callback) {
     pb.all("SELECT Customer.* FROM Customer, Invoice \
             WHERE Customer.CustomerId = Invoice.CustomerId AND Invoice.InvoiceId = " + racunId,
     function(napaka, vrstice) {
-      console.log(vrstice);
+      callback(napaka, vrstice);
     })
 }
 
 // Izpis računa v HTML predstavitvi na podlagi podatkov iz baze
 streznik.post('/izpisiRacunBaza', function(zahteva, odgovor) {
-  odgovor.end();
+  var form = new formidable.IncomingForm();
+  form.parse(zahteva, function (napaka1, polja, datoteke) {
+    var racunId = polja["seznamRacunov"];
+    console.log(racunId);
+
+    strankaIzRacuna(racunId, function(napaka1, stranka) {
+      if (napaka1){
+        odgovor.sendStatus(500);
+      } else {
+        pesmiIzRacuna(racunId, function(napaka2, pesmi){
+          if (napaka2) {
+            odgovor.sendStatus(500);
+          }
+          else {
+            if (stranka.length == 0) {
+              odgovor.send("<p>Ta račun ne obstaja - napačen ID računa.</p>");
+            } else {
+              console.log("Stranka: \n" + util.inspect(stranka[0]) + "\n");
+              console.log("Postavke na računu:\n" + util.inspect(pesmi) + "\n");
+              odgovor.setHeader('content-type', 'text/xml');
+              odgovor.render('eslog', {
+                podatkiNarocnika: stranka[0],
+                postavkeRacuna: pesmi,
+                vizualiziraj:  true ,
+             });
+            }
+          }
+        })
+      }
+    })
+  });
+  
 })
 
 // Izpis računa v HTML predstavitvi ali izvorni XML obliki
@@ -166,10 +197,13 @@ streznik.get('/izpisiRacun/:oblika', function(zahteva, odgovor) {
         zato računa ni mogoče pripraviti!</p>");
     } else {
       odgovor.setHeader('content-type', 'text/xml');
-      odgovor.render('eslog', {
-        vizualiziraj: zahteva.params.oblika == 'html' ? true : false,
-        postavkeRacuna: pesmi
-      })  
+      vrniStranke(function (napaka, stranke) {
+          odgovor.render('eslog', {
+          podatkiNarocnika: stranke[0],
+          vizualiziraj: zahteva.params.oblika == 'html' ? true : false,
+          postavkeRacuna: pesmi
+        })  
+      })
     }
   })
 })
